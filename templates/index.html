@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Air Quality Map with Sentinel-5P & AQI</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { width: 100%; height: 100vh; }
+    #info-content {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      z-index: 1000;
+      max-width: 300px;
+      font-size: 14px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    #overlay-selector {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 8px;
+      border-radius: 8px;
+    }
+    #legend {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: white;
+      padding: 10px;
+      font-size: 13px;
+      border-radius: 8px;
+      z-index: 1000;
+      max-width: 200px;
+    }
+    .legend-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .legend-scale {
+      display: flex;
+      height: 12px;
+      margin-top: 5px;
+    }
+    .legend-color {
+      flex: 1;
+    }
+  </style>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="info-content">Loading location...</div>
+
+  <div id="overlay-selector">
+    <label for="layerSelect">Select Pollutant:</label>
+    <select id="layerSelect">
+      <option value="no2">NO₂</option>
+      <option value="co">CO</option>
+      <option value="so2">SO₂</option>
+      <option value="o3">O₃</option>
+      <option value="hcho">HCHO</option>
+      <option value="aerosol">Aerosol Index</option>
+    </select>
+  </div>
+
+  <div id="legend">
+    <div class="legend-title">NO₂ Concentration</div>
+    <div class="legend-scale" id="legend-colors"></div>
+    <div><small>Black (Low) → Red (High)</small></div>
+  </div>
+
+  <script>
+    const map = L.map('map').setView([22.5726, 88.3639], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data © OpenStreetMap contributors'
+    }).addTo(map);
+
+    const colorPalettes = {
+      no2: ['black', 'blue', 'purple', 'cyan', 'green', 'yellow', 'red'],
+      co: ['black', 'blue', 'cyan', 'green', 'yellow', 'red'],
+      so2: ['black', 'purple', 'blue', 'green', 'yellow', 'orange', 'red'],
+      o3: ['black', 'purple', 'blue', 'green', 'yellow', 'orange', 'red'],
+      hcho: ['black', 'blue', 'cyan', 'green', 'yellow', 'red'],
+      aerosol: ['black', 'blue', 'cyan', 'green', 'yellow', 'red']
+    };
+
+    const overlays = {
+      no2: L.tileLayer('https://earthengine.googleapis.com/v1/projects/auramed-455016/maps/9ef66c733f5b6c28991f98db40fe6e81-fdd6c6a55d2a8e6d4624cec3aed15013/tiles/{z}/{x}/{y}', {
+        attribution: 'Sentinel-5P NO₂'
+      }),
+      co: L.tileLayer('https://earthengine.googleapis.com/v1/projects/auramed-455016/maps/306b604070b00e1c82545e0d4df00492-80fb46b03b7d89ff6664e6a896649520/tiles/{z}/{x}/{y}', {
+        attribution: 'Sentinel-5P CO'
+      }),
+      so2: L.tileLayer('https://earthengine.googleapis.com/v1/projects/auramed-455016/maps/0cf72b20223035c07810bc94a8780f9e-ca5f68fc36b91e8e9c4e8ea04d2b7271/tiles/{z}/{x}/{y}', {
+        attribution: 'Sentinel-5P SO₂'
+      }),
+      o3: L.tileLayer('https://earthengine.googleapis.com/v1/projects/auramed-455016/maps/d16d953f4c6f8ac15bd9d9631197ca4f-72e4a5588346cd0f9a980d9c32e4b740/tiles/{z}/{x}/{y}', {
+        attribution: 'Sentinel-5P O₃'
+      }),
+      hcho: L.tileLayer('https://earthengine.googleapis.com/v1/projects/auramed-455016/maps/f0560b113a09f115fe12933a03aa59bd-c04de45572c120e2d1ee3c6a8c008c13/tiles/{z}/{x}/{y}', {
+        attribution: 'Sentinel-5P HCHO'
+      }),
+      aerosol: L.tileLayer('https://earthengine.googleapis.com/v1/projects/auramed-455016/maps/f822d4a798fdffefacda34220e054738-50530e68e29342f9aeba7fa21aaa66f9/tiles/{z}/{x}/{y}', {
+        attribution: 'Sentinel-5P Aerosol Index'
+      })
+    };
+
+    overlays.no2.addTo(map);
+    let currentOverlay = overlays.no2;
+
+    function updateLegend(pollutant) {
+      const palette = colorPalettes[pollutant];
+      const legendDiv = document.getElementById('legend-colors');
+      legendDiv.innerHTML = '';
+      palette.forEach(color => {
+        const block = document.createElement('div');
+        block.className = 'legend-color';
+        block.style.background = color;
+        legendDiv.appendChild(block);
+      });
+      document.querySelector('.legend-title').innerText = pollutant.toUpperCase() + " Concentration";
+    }
+
+    updateLegend("no2");
+
+    document.getElementById('layerSelect').addEventListener('change', function () {
+      map.removeLayer(currentOverlay);
+      currentOverlay = overlays[this.value];
+      map.addLayer(currentOverlay);
+      updateLegend(this.value);
+    });
+
+    const currentLocationIcon = L.icon({
+      iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34]
+    });
+
+    const clickedLocationIcon = L.icon({
+      iconUrl: 'https://unpkg.com/leaflet@1.9.3/dist/images/marker-icon-2x.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34]
+    });
+
+    let heatLayer = L.heatLayer([], { radius: 25, blur: 15, maxZoom: 17 }).addTo(map);
+
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(showPosition, showError);
+      } else {
+        document.getElementById('info-content').innerText = "Geolocation not supported.";
+      }
+    }
+
+    async function showPosition(position) {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+
+      map.setView([lat, lon], 12);
+      L.marker([lat, lon], { icon: currentLocationIcon }).addTo(map)
+        .bindPopup(`Your Location: [${lat.toFixed(4)}, ${lon.toFixed(4)}]`)
+        .openPopup();
+
+      const address = await fetchLocationName(lat, lon);
+      const airData = await fetchAirData(lat, lon);
+
+      updateInfoBox(lat, lon, address, airData, 'Your Current Location');
+      addToHeatmap(lat, lon, airData.pollution.aqicn);
+    }
+
+    map.on('click', async (e) => {
+      const { lat, lng } = e.latlng;
+
+      L.marker([lat, lng], { icon: clickedLocationIcon }).addTo(map)
+        .bindPopup(`Clicked: [${lat.toFixed(4)}, ${lng.toFixed(4)}]`)
+        .openPopup();
+
+      const address = await fetchLocationName(lat, lng);
+      const airData = await fetchAirData(lat, lng);
+
+      updateInfoBox(lat, lng, address, airData, 'Clicked Location');
+      addToHeatmap(lat, lng, airData.pollution.aqicn);
+    });
+
+    function updateInfoBox(lat, lon, address, airData, label) {
+      document.getElementById('info-content').innerHTML = `
+        <strong>${label}:</strong><br>
+        Latitude: ${lat.toFixed(5)}, Longitude: ${lon.toFixed(5)}<br>
+        <strong>Address:</strong> ${address}<br><br>
+        <strong>City:</strong> ${airData.city}<br>
+        <strong>State:</strong> ${airData.state}<br>
+        <strong>Country:</strong> ${airData.country}<br><br>
+        <strong>Main Pollutant (CN):</strong> ${airData.pollution.maincn}<br>
+        <strong>AQI (CN):</strong> ${airData.pollution.aqicn}<br><br>
+        <strong>Temp:</strong> ${airData.weather.tp}°C<br>
+        <strong>Humidity:</strong> ${airData.weather.hu}%<br>
+        <strong>Pressure:</strong> ${airData.weather.pr} hPa<br>
+        <strong>Wind:</strong> ${airData.weather.ws} m/s at ${airData.weather.wd}°<br>
+      `;
+    }
+
+    function addToHeatmap(lat, lon, aqi) {
+      const normalized = Math.min(Math.max(aqi / 300, 0.1), 1.0);
+      heatLayer.addLatLng([lat, lon, normalized]);
+    }
+
+    async function fetchLocationName(lat, lon) {
+      const apiKey = '6c62e89a297a4da6ab74740be026e9e7';
+      const url = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${apiKey}`;
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+        return data.results[0]?.formatted || 'No address found';
+      } catch (error) {
+        console.error('Geocoding error:', error);
+        return 'Address unavailable';
+      }
+    }
+
+    async function fetchAirData(lat, lon) {
+      const url = `http://api.airvisual.com/v2/nearest_city?lat=${lat}&lon=${lon}&key=e5e635df-37a8-4ac7-b712-2a0207578385`;
+      try {
+        const response = await fetch(url);
+        const json = await response.json();
+        if (json.status === "success") {
+          const d = json.data;
+          return {
+            city: d.city,
+            state: d.state,
+            country: d.country,
+            pollution: {
+              maincn: d.current.pollution.maincn,
+              aqicn: d.current.pollution.aqicn
+            },
+            weather: {
+              tp: d.current.weather.tp,
+              hu: d.current.weather.hu,
+              pr: d.current.weather.pr,
+              ws: d.current.weather.ws,
+              wd: d.current.weather.wd
+            }
+          };
+        } else {
+          throw new Error("Air data fetch failed");
+        }
+      } catch (error) {
+        console.error('Error fetching air data:', error);
+        return {
+          city: 'N/A',
+          state: 'N/A',
+          country: 'N/A',
+          pollution: { maincn: 'N/A', aqicn: 0 },
+          weather: { tp: 'N/A', hu: 'N/A', pr: 'N/A', ws: 'N/A', wd: 'N/A' }
+        };
+      }
+    }
+
+    function showError(error) {
+      let message;
+      switch (error.code) {
+        case error.PERMISSION_DENIED: message = "Permission denied."; break;
+        case error.POSITION_UNAVAILABLE: message = "Location unavailable."; break;
+        case error.TIMEOUT: message = "Request timed out."; break;
+        default: message = "Unknown error.";
+      }
+      document.getElementById('info-content').innerText = message;
+    }
+
+    getLocation();
+  </script>
+</body>
+</html>

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clickable Location Tracker</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <!-- 1. Leaflet core script (defines 'L') -->
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+
+<!-- 2. THEN add the heatmap plugin (depends on 'L') -->
+<script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+
+  <style>
+    #map {
+      height: 100vh; /* Full screen height */
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">
+  <button onclick="document.getElementById('info').style.display='none'" style="float:right;">✖</button>
+  <div id="info-content">Fetching location...</div>
+</div>
+  <div id="map"></div>
+
+
+<script>
+  const map = L.map('map').setView([20.5937, 78.9629], 5);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+  }).addTo(map);
+
+  const currentLocationIcon = L.icon({
+    iconUrl: '/Images/marker-icon-2x-green.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+  });
+
+  const clickedLocationIcon = L.icon({
+    iconUrl: '/Images/marker-icon-2x-orange.png',
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+  });
+
+  let heatLayer = L.heatLayer([], { radius: 25, blur: 15, maxZoom: 17 }).addTo(map);
+
+  function getLocation() {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(showPosition, showError);
+    } else {
+      document.getElementById('info-content').innerText = "Geolocation not supported.";
+    }
+  }
+
+  async function showPosition(position) {
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+
+    map.setView([lat, lon], 13);
+    L.marker([lat, lon], { icon: currentLocationIcon }).addTo(map)
+      .bindPopup(`Your Location: [${lat.toFixed(5)}, ${lon.toFixed(5)}]`)
+      .openPopup();
+
+    const address = await fetchLocationName(lat, lon);
+    const airData = await fetchAirData(lat, lon);
+
+    document.getElementById('info-content').innerHTML = `
+      <strong>Your Current Location:</strong><br>
+      Latitude: ${lat.toFixed(5)}, Longitude: ${lon.toFixed(5)}<br>
+      <strong>Address:</strong> ${address}<br><br>
+      <strong>City:</strong> ${airData.city}<br>
+      <strong>State:</strong> ${airData.state}<br>
+      <strong>Country:</strong> ${airData.country}<br><br>
+      <strong>Main Pollutant (CN):</strong> ${airData.pollution.maincn}<br>
+      <strong>AQI (CN):</strong> ${airData.pollution.aqicn}<br><br>
+      <strong>Temperature:</strong> ${airData.weather.tp}°C<br>
+      <strong>Humidity:</strong> ${airData.weather.hu}%<br>
+      <strong>Pressure:</strong> ${airData.weather.pr} hPa<br>
+      <strong>Wind:</strong> ${airData.weather.ws} m/s at ${airData.weather.wd}°<br>
+    `;
+
+    // Add AQI heat point
+    addToHeatmap(lat, lon, airData.pollution.aqicn);
+  }
+
+  map.on('click', async (e) => {
+    const { lat, lng } = e.latlng;
+
+    L.marker([lat, lng], { icon: clickedLocationIcon }).addTo(map)
+      .bindPopup(`Clicked Location: [${lat.toFixed(5)}, ${lng.toFixed(5)}]`)
+      .openPopup();
+
+    const address = await fetchLocationName(lat, lng);
+    const airData = await fetchAirData(lat, lng);
+
+    document.getElementById('info-content').innerHTML = `
+      <strong>Clicked Location:</strong><br>
+      Latitude: ${lat.toFixed(5)}, Longitude: ${lng.toFixed(5)}<br>
+      <strong>Address:</strong> ${address}<br><br>
+      <strong>City:</strong> ${airData.city}<br>
+      <strong>State:</strong> ${airData.state}<br>
+      <strong>Country:</strong> ${airData.country}<br><br>
+      <strong>Main Pollutant (CN):</strong> ${airData.pollution.maincn}<br>
+      <strong>AQI (CN):</strong> ${airData.pollution.aqicn}<br><br>
+      <strong>Temperature:</strong> ${airData.weather.tp}°C<br>
+      <strong>Humidity:</strong> ${airData.weather.hu}%<br>
+      <strong>Pressure:</strong> ${airData.weather.pr} hPa<br>
+      <strong>Wind:</strong> ${airData.weather.ws} m/s at ${airData.weather.wd}°<br>
+    `;
+
+    // Add to heatmap
+    addToHeatmap(lat, lng, airData.pollution.aqicn);
+  });
+
+  function addToHeatmap(lat, lon, aqi) {
+    const normalized = Math.min(Math.max(aqi / 300, 0.1), 1.0); // Normalize AQI to 0.1 - 1.0 for heatmap intensity
+    heatLayer.addLatLng([lat, lon, normalized]);
+  }
+
+  async function fetchLocationName(lat, lon) {
+    const apiKey = '6c62e89a297a4da6ab74740be026e9e7';
+    const url = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${apiKey}`;
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      return data.results[0]?.formatted || 'No address found';
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      return 'Error fetching address';
+    }
+  }
+
+  async function fetchAirData(lat, lon) {
+    const url = `http://api.airvisual.com/v2/nearest_city?lat=${lat}&lon=${lon}&key=e5e635df-37a8-4ac7-b712-2a0207578385`;
+    try {
+      const response = await fetch(url);
+      const json = await response.json();
+      if (json.status === "success") {
+        const d = json.data;
+        return {
+          city: d.city,
+          state: d.state,
+          country: d.country,
+          pollution: {
+            maincn: d.current.pollution.maincn,
+            aqicn: d.current.pollution.aqicn
+          },
+          weather: {
+            tp: d.current.weather.tp,
+            hu: d.current.weather.hu,
+            pr: d.current.weather.pr,
+            ws: d.current.weather.ws,
+            wd: d.current.weather.wd
+          }
+        };
+      } else {
+        throw new Error("Air data fetch failed");
+      }
+    } catch (error) {
+      console.error('Error fetching air data:', error);
+      return {
+        city: 'N/A',
+        state: 'N/A',
+        country: 'N/A',
+        pollution: { maincn: 'N/A', aqicn: 0 },
+        weather: { tp: 'N/A', hu: 'N/A', pr: 'N/A', ws: 'N/A', wd: 'N/A' }
+      };
+    }
+  }
+
+  function showError(error) {
+    let message;
+    switch (error.code) {
+      case error.PERMISSION_DENIED: message = "Permission denied."; break;
+      case error.POSITION_UNAVAILABLE: message = "Position unavailable."; break;
+      case error.TIMEOUT: message = "Request timed out."; break;
+      default: message = "Unknown error.";
+    }
+    document.getElementById('info-content').innerText = message;
+  }
+
+  getLocation();
+</script>
+
+</body>
+</html>
