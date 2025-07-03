@@ -1,0 +1,39 @@
+# ------------------------- Main Loop ------------------------- #
+CITIES = {
+    "delhi": (28.61, 77.23), "mumbai": (19.07, 72.87), "kolkata": (22.574, 88.363),
+    "chennai": (13.0827, 80.2707), "hyderabad": (17.385, 78.4867), "bengaluru": (12.9716, 77.5946)
+}
+START_YEAR, END_YEAR = 2021, 2025
+
+for CITY, (lat, lon) in CITIES.items():
+    print(f"\n\n🚀 Processing City: {CITY.upper()} ----------------------------")
+    df_aqi, df_pollutant = load_city_data(CITY, START_YEAR, END_YEAR)
+    if df_aqi.empty: continue
+
+    df_weather = load_weather_data(lat, lon, df_aqi["Date"].min(), df_aqi["Date"].max())
+    df_merged = pd.merge(df_aqi, df_weather, on="Date", how="inner")
+    df_merged = pd.merge(df_merged, df_pollutant, on="Date", how="left")
+
+    for pol in ["PM10", "PM2.5", "OZONE", "NO2", "CO"]: df_merged[pol] = 0
+    for i, row in df_merged.iterrows():
+        if pd.notna(row["Pollutants"]):
+            for pol in row["Pollutants"].split(','):
+                if pol.strip().upper() in df_merged.columns:
+                    df_merged.at[i, pol.strip().upper()] = 1
+
+    keep_cols = ["Date", "AQI", "TempAvg", "TempMin", "TempMax", "WindSpeed", "PM10", "PM2.5", "OZONE", "NO2", "CO"]
+    df_merged = df_merged[keep_cols].dropna()
+    df_feat = create_features(df_merged)
+    X = df_feat.drop(columns=["Date", "AQI"])
+    y = df_feat["AQI"]
+
+    model = train_with_cv_and_tuning(X, y)
+    y_pred = model.predict(X)
+    joblib.dump(model, f"aqi_model_{CITY}.pkl")
+    plot_predictions(df_feat["Date"], y, y_pred, city=CITY)
+    print("\n📊 Model Evaluation:")
+    print(f"MAE  : {mean_absolute_error(y, y_pred):.2f}")
+    print(f"RMSE : {np.sqrt(mean_squared_error(y, y_pred)):.2f}")
+    print(f"R²   : {r2_score(y, y_pred):.4f}")
+
+    forecast_next_days(model, df_feat, future_days=7)

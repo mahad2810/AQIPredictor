@@ -1,120 +1,149 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import joblib
+import os
+import matplotlib.pyplot as plt
 from datetime import datetime
 from AQIPredict import load_city_data, load_weather_data, create_features, forecast_next_days
 
-st.set_page_config(page_title="AQI Forecaster", layout="centered")
+# ----------------------------- CONFIG ----------------------------- #
+st.set_page_config(page_title="AQI Forecaster App", layout="wide")
+st.title("🌍 Air Quality Forecaster")
 
-st.title("🌫️ Air Quality Index (AQI) Forecaster")
-st.markdown("Select a city to view historical AQI and weather trends, and forecast the upcoming air quality.")
-
+# ----------------------------- CITIES ----------------------------- #
 CITIES = {
-    "Delhi": (28.61, 77.23), "Mumbai": (19.07, 72.87), "Kolkata": (22.574, 88.363),
-    "Chennai": (13.0827, 80.2707), "Hyderabad": (17.385, 78.4867), "Bengaluru": (12.9716, 77.5946)
+    "Delhi": (28.61, 77.23),
+    "Mumbai": (19.07, 72.87),
+    "Kolkata": (22.574, 88.363),
+    "Chennai": (13.0827, 80.2707),
+    "Hyderabad": (17.385, 78.4867),
+    "Bengaluru": (12.9716, 77.5946)
 }
 
-city = st.selectbox("Choose a city", list(CITIES.keys()))
-lat, lon = CITIES[city.lower().capitalize()]
+START_YEAR, END_YEAR = 2021, 2025
 
-with st.spinner("Loading historical data..."):
-    df_aqi, df_pollutant = load_city_data(city.lower(), 2021, 2025)
-    if df_aqi.empty:
-        st.error(f"No AQI data found for {city}.")
-        st.stop()
+# ----------------------------- SIDEBAR ----------------------------- #
+st.sidebar.header("🔍 Choose City")
+city_name = st.sidebar.selectbox("City", list(CITIES.keys()))
+lat, lon = CITIES[city_name]
 
-    df_weather = load_weather_data(lat, lon, df_aqi["Date"].min(), df_aqi["Date"].max())
-    df_merged = pd.merge(df_aqi, df_weather, on="Date", how="inner")
-    df_merged = pd.merge(df_merged, df_pollutant, on="Date", how="left")
+# ----------------------------- LOAD DATA ----------------------------- #
+st.info(f"Loading historical AQI & weather data for {city_name}...")
+df_aqi, df_pollutant = load_city_data(city_name.lower(), START_YEAR, END_YEAR)
 
-    # Plotting historical data with severity bands
-    st.subheader("📊 Historical AQI Trends with Weather Data")
+if df_aqi.empty:
+    st.error("❌ No AQI data available for this city.")
+    st.stop()
 
-    def get_severity_color(aqi):
-        if aqi <= 50: return "#00e400"
-        elif aqi <= 100: return "#ffff00"
-        elif aqi <= 200: return "#ff7e00"
-        elif aqi <= 300: return "#ff0000"
-        elif aqi <= 400: return "#99004c"
-        else: return "#7e0023"
+weather_start = df_aqi["Date"].min()
+weather_end = df_aqi["Date"].max()
+df_weather = load_weather_data(lat, lon, weather_start, weather_end)
 
-    def get_aqi_category(aqi):
-        if aqi <= 50: return "Good ✅"
-        elif aqi <= 100: return "Satisfactory 😊"
-        elif aqi <= 200: return "Moderate 😐"
-        elif aqi <= 300: return "Poor 😷"
-        elif aqi <= 400: return "Very Poor 😵"
-        else: return "Severe ❌"
+# Merge and preprocess
+df_merged = pd.merge(df_aqi, df_weather, on="Date", how="inner")
+df_merged = pd.merge(df_merged, df_pollutant, on="Date", how="left")
 
-    def plot_historical(df, year):
-        df_year = df[df["Date"].dt.year == year]
-        fig, ax1 = plt.subplots(figsize=(8, 4))
-        ax1.plot(df_year["Date"], df_year["AQI"], label="AQI", color="black")
-        for _, row in df_year.iterrows():
-            ax1.axvspan(row["Date"], row["Date"], color=get_severity_color(row["AQI"]), alpha=0.2)
+for pol in ["PM10", "PM2.5", "OZONE", "NO2", "CO"]:
+    df_merged[pol] = 0
+for i, row in df_merged.iterrows():
+    if pd.notna(row["Pollutants"]):
+        for pol in row["Pollutants"].split(','):
+            pol = pol.strip().upper()
+            if pol in df_merged.columns:
+                df_merged.at[i, pol] = 1
 
-        ax2 = ax1.twinx()
-        ax2.plot(df_year["Date"], df_year["TempAvg"], label="Temp Avg (°C)", color="blue", linestyle="--", alpha=0.6)
-        ax2.plot(df_year["Date"], df_year["WindSpeed"], label="Wind Speed (km/h)", color="green", linestyle=":", alpha=0.6)
+keep_cols = ["Date", "AQI", "TempAvg", "TempMin", "TempMax", "WindSpeed", "PM10", "PM2.5", "OZONE", "NO2", "CO"]
+df_merged = df_merged[keep_cols].dropna()
 
-        ax1.set_ylabel("AQI")
-        ax2.set_ylabel("Weather")
-        ax1.set_title(f"{city} - {year} AQI with Weather")
-        ax1.grid(True, linestyle='--', alpha=0.3)
 
-        aqi_legend = [
-            mpatches.Patch(color="#00e400", label="Good (0-50)"),
-            mpatches.Patch(color="#ffff00", label="Satisfactory (51-100)"),
-            mpatches.Patch(color="#ff7e00", label="Moderate (101-200)"),
-            mpatches.Patch(color="#ff0000", label="Poor (201-300)"),
-            mpatches.Patch(color="#99004c", label="Very Poor (301-400)"),
-            mpatches.Patch(color="#7e0023", label="Severe (401+)")
-        ]
-        ax1.legend(handles=aqi_legend, loc="upper left", fontsize=8)
-        ax2.legend(loc="upper right", fontsize=8)
+# ----------------------------- SHARED YEAR SLIDER ----------------------------- #
+df_merged["Year"] = df_merged["Date"].dt.year
+available_years = sorted(df_merged["Year"].unique())
 
-        st.pyplot(fig)
-        avg = df_year["AQI"].mean()
-        st.info(f"**{year} Summary:** Average AQI was {avg:.2f} → {get_aqi_category(avg)}")
+selected_year = st.select_slider("📅 Select Year", options=available_years, value=available_years[-1])
 
-    for yr in sorted(df_merged["Date"].dt.year.unique()):
-        with st.expander(f"📅 {yr} - Click to view graph"):
-            plot_historical(df_merged, yr)
 
-if st.button("📈 Forecast Next 7 Days"):
-    try:
-        model = joblib.load(f"aqi_model_{city.lower()}.pkl")
-    except:
-        st.error("Model not found. Train the model first using AQIPredict.py")
-        st.stop()
+# ----------------------------- YEARLY SUMMARY SECTION ----------------------------- #
+st.subheader(f"📌 Summary for {city_name} - {selected_year}")
+df_year_summary = df_merged[df_merged["Year"] == selected_year]
 
-    with st.spinner("Forecasting AQI for the next 7 days..."):
-        df_merged = df_merged.dropna(subset=["AQI", "TempAvg", "WindSpeed"])
-        for pol in ["PM10", "PM2.5", "OZONE", "NO2", "CO"]:
-            df_merged[pol] = 0
-        for i, row in df_merged.iterrows():
-            if pd.notna(row["Pollutants"]):
-                for pol in row["Pollutants"].split(','):
-                    if pol.strip().upper() in df_merged.columns:
-                        df_merged.at[i, pol.strip().upper()] = 1
+summary_container = st.container()
+with summary_container:
+    col1, col2 = st.columns(2)
 
+    with col1:
+        st.markdown("### 🌫️ AQI Stats")
+        aqi_stats = df_year_summary["AQI"].describe()[["mean", "min", "max", "std"]].round(2)
+        st.metric("Average AQI", f"{aqi_stats['mean']}")
+        st.metric("Max AQI", f"{aqi_stats['max']}")
+        st.metric("Min AQI", f"{aqi_stats['min']}")
+        st.metric("Std Deviation", f"{aqi_stats['std']}")
+
+    with col2:
+        st.markdown("### 🌤️ Weather Averages")
+        st.metric("Avg Temperature (°C)", f"{df_year_summary['TempAvg'].mean():.2f}")
+        st.metric("Min Temperature (°C)", f"{df_year_summary['TempMin'].mean():.2f}")
+        st.metric("Max Temperature (°C)", f"{df_year_summary['TempMax'].mean():.2f}")
+        st.metric("Avg Wind Speed (km/h)", f"{df_year_summary['WindSpeed'].mean():.2f}")
+
+# Pollutant frequency
+st.markdown("### 🧪 Pollutant Detection Frequency")
+pollutant_cols = ["PM10", "PM2.5", "OZONE", "NO2", "CO"]
+pollutant_counts = df_year_summary[pollutant_cols].sum().astype(int)
+
+pollutant_df = pd.DataFrame({
+    "Pollutant": pollutant_counts.index,
+    "Detected Days": pollutant_counts.values
+})
+st.dataframe(pollutant_df.style.background_gradient(cmap="YlGnBu"))
+
+# ----------------------------- HISTORICAL DATA CHARTS ----------------------------- #
+st.subheader(f"📊 Historical AQI + Weather Trends for {city_name} (2021–2025)")
+
+df_merged["Year"] = df_merged["Date"].dt.year
+year_groups = dict(tuple(df_merged.groupby("Year")))
+available_years = sorted(year_groups.keys())
+
+# Carousel-like Year Selector
+df_year = df_merged[df_merged["Year"] == selected_year]
+
+with st.container():
+    fig, ax1 = plt.subplots(figsize=(10, 4))
+    ax1.plot(df_year["Date"], df_year["AQI"], color="crimson", label="AQI", linewidth=2)
+    ax1.set_ylabel("AQI", color="crimson")
+    ax1.tick_params(axis='y', labelcolor='crimson')
+    ax1.set_title(f"{city_name} - Year {selected_year}", fontsize=14)
+
+    ax2 = ax1.twinx()
+    ax2.plot(df_year["Date"], df_year["TempAvg"], color="darkgreen", label="TempAvg (°C)", linestyle="--")
+    ax2.plot(df_year["Date"], df_year["WindSpeed"], color="blue", label="Wind Speed (km/h)", linestyle=":")
+    ax2.set_ylabel("Weather", color="gray")
+    ax2.tick_params(axis='y', labelcolor='gray')
+
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper right", fontsize=8)
+
+    plt.tight_layout()
+    st.pyplot(fig)
+
+# ----------------------------- FORECAST ----------------------------- #
+st.subheader("📈 7-Day Forecast")
+st.markdown("Click the button below to run the forecast model for the selected city.")
+
+if st.button("🔮 Run Forecast"):
+    with st.spinner("Generating forecast..."):
         df_feat = create_features(df_merged)
-        forecast_dates, forecast_values = forecast_next_days(model, df_feat)
+        model_path = f"aqi_model_{city_name.lower()}.pkl"
+        if not os.path.exists(model_path):
+            st.error("❌ Forecast model not found for this city.")
+            st.stop()
 
-        st.subheader("🔮 7-Day AQI Forecast")
+        model = joblib.load(model_path)
+        forecast_dates, forecast_values = forecast_next_days(model, df_feat, future_days=7)
+
         df_forecast = pd.DataFrame({"Date": forecast_dates, "Predicted AQI": forecast_values})
-        df_forecast["Severity"] = df_forecast["Predicted AQI"].apply(get_aqi_category)
-        st.dataframe(df_forecast.style.highlight_max(axis=0, color="lightcoral"))
+        df_forecast["Date"] = pd.to_datetime(df_forecast["Date"])
 
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.plot(df_forecast["Date"], df_forecast["Predicted AQI"], marker="o", color="black")
-        for _, row in df_forecast.iterrows():
-            ax.axvspan(row["Date"], row["Date"], color=get_severity_color(row["Predicted AQI"]), alpha=0.3)
-        ax.set_title(f"{city} - 7-Day Forecast")
-        ax.set_ylabel("AQI")
-        ax.grid(True, linestyle='--', alpha=0.3)
-        st.pyplot(fig)
-
-        st.info(f"**Next 7 Days Summary:** Peak AQI expected is {max(forecast_values):.2f} → {get_aqi_category(max(forecast_values))}")
+        st.line_chart(df_forecast.set_index("Date"))
+        st.dataframe(df_forecast.style.background_gradient(cmap="OrRd"))
