@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Pollution Sources Map</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    #map { height: 100vh; width: 100%; }
+    .legend {
+      background: white;
+      padding: 10px;
+      line-height: 1.5em;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+
+<script>
+  const map = L.map('map').setView([28.6139, 77.2090], 10);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  // Load road layer
+  const roadLayer = L.geoJSON(null, {
+    style: { color: "orange", weight: 1 }
+  });
+  fetch("delhi_roads.geojson")
+    .then(res => res.json())
+    .then(data => roadLayer.addData(data));
+
+  // Load industrial zones
+  const industryLayer = L.geoJSON(null, {
+    style: { color: "red", weight: 1, fillOpacity: 0.5 }
+  });
+  fetch("delhi_industrial.geojson")
+    .then(res => res.json())
+    .then(data => industryLayer.addData(data));
+
+  // Load fire points
+  const fireLayer = L.geoJSON(null, {
+    pointToLayer: function (feature, latlng) {
+      return L.circleMarker(latlng, {
+        radius: 5,
+        color: "darkred",
+        fillColor: "orange",
+        fillOpacity: 0.8
+      });
+    },
+    onEachFeature: function (feature, layer) {
+      layer.bindPopup(`🔥 Fire<br>Date: ${feature.properties.acq_date}<br>Brightness: ${feature.properties.brightness}`);
+    }
+  });
+  fetch("fires.geojson")
+    .then(res => res.json())
+    .then(data => fireLayer.addData(data));
+
+  // Add all layers to map
+  roadLayer.addTo(map);
+  industryLayer.addTo(map);
+  fireLayer.addTo(map);
+
+  // Add layer control
+  L.control.layers(null, {
+    "🛣️ Road Density": roadLayer,
+    "🏭 Industrial Zones": industryLayer,
+    "🔥 Crop Fires": fireLayer
+  }, { collapsed: false }).addTo(map);
+
+  // Legend
+  const legend = L.control({ position: "bottomright" });
+  legend.onAdd = function () {
+    const div = L.DomUtil.create("div", "legend");
+    div.innerHTML += "<b>Legend</b><br>";
+    div.innerHTML += "<i style='background:orange;width:12px;height:12px;display:inline-block;'></i> Road Density<br>";
+    div.innerHTML += "<i style='background:red;width:12px;height:12px;display:inline-block;'></i> Industrial Area<br>";
+    div.innerHTML += "<i style='background:darkred;width:12px;height:12px;display:inline-block;'></i> Fire Point<br>";
+    return div;
+  };
+  legend.addTo(map);
+</script>
+</body>
+</html>
