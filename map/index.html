@@ -7,12 +7,18 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
 
-        <!-- Load Leaflet core -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+     <!-- Leaflet core -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-    <!-- Load Leaflet Heat Plugin -->
-    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+<!-- Leaflet Heat Plugin -->
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+
+<!-- Leaflet Fullscreen Plugin -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen@2.4.0/Control.FullScreen.css" />
+<script src="https://unpkg.com/leaflet.fullscreen@2.4.0/Control.FullScreen.js"></script>
+
+
 
     <style>
       * {
@@ -1321,8 +1327,12 @@ initAQIMap() {
 
 async setupRealAQIMap() {
   console.log("[DEBUG] Initializing real AQI map...");
+console.log("L.Control.Fullscreen:", typeof L.Control.Fullscreen); // should be "function"
 
-  const map = L.map('map').setView([22.5726, 88.3639], 6);
+ const map = L.map('map').setView([22.5726, 88.3639], 6);
+
+  
+
   console.log("[DEBUG] Map initialized at default location [22.5726, 88.3639]");
   console.log("[DEBUG] L.heatLayer available?", typeof L.heatLayer);
 
@@ -1502,6 +1512,7 @@ setupPollutionSourcesMap() {
     center: [78.9629, 22.5937],
     zoom: 4
   });
+  map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
 
   // 🚀 List of short city names matching your saved files
 const roadCities = [
@@ -1545,7 +1556,6 @@ const roadCities = [
           .setLngLat([lon, lat])
           .setPopup(new mapboxgl.Popup().setHTML(`<strong>Your Location</strong><br>${address}`))
           .addTo(map)
-          .togglePopup();
       } catch (err) {
         console.error("Reverse geocode failed:", err);
       }
@@ -1561,7 +1571,7 @@ const roadCities = [
     roadCities.forEach(city => {
       map.addSource(`${city}_roads`, {
         type: 'geojson',
-        data: `${city}_roads.geojson`
+        data: `./Geojson/${city}_roads.geojson`
       });
       map.addLayer({
         id: `${city}_roads`,
@@ -1575,7 +1585,7 @@ const roadCities = [
 
       map.addSource(`${city}_industries`, {
         type: 'geojson',
-        data: `${city}_industries.geojson`
+        data: `./Geojson/${city}_industries.geojson`
       });
       map.addLayer({
         id: `${city}_industries`,
@@ -1591,7 +1601,7 @@ const roadCities = [
     // Add fires layer
     map.addSource('fires', {
       type: 'geojson',
-      data: 'fires.geojson'
+      data: './Geojson/fires.geojson'
     });
     map.addLayer({
       id: 'fires',
