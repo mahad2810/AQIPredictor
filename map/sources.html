@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>India Roads, Industries & Fires - Mapbox</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+  <style>
+    body { margin:0; padding:0; background:#fff; }
+    #map { position:absolute; top:0; bottom:0; width:100%; }
+    .map-overlay {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(255,255,255,0.9);
+      color: #111;
+      padding: 12px;
+      border-radius: 8px;
+      font-family: sans-serif;
+      font-size: 14px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      z-index: 1;
+    }
+    .map-overlay label {
+      display: block;
+      margin-bottom: 6px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+<div class="map-overlay">
+  <label><input type="checkbox" id="roadsToggle" checked> Major Roads</label>
+  <label><input type="checkbox" id="industriesToggle" checked> Industrial Zones</label>
+  <label><input type="checkbox" id="firesToggle" checked> Fires (NASA)</label>
+</div>
+
+<script>
+mapboxgl.accessToken = 'pk.eyJ1IjoibWFoYWQxNjA0IiwiYSI6ImNtY3A2OWlpaTAydXQybHIyYjJvejhqemQifQ.2y3ZmPe5lRXfqns5zlG7hA';
+
+const map = new mapboxgl.Map({
+  container: 'map',
+  style: 'mapbox://styles/mapbox/light-v11',
+  center: [78.9629, 22.5937],
+  zoom: 4
+});
+
+// 🚀 List of short city names matching your saved files
+const roadCities = [
+"delhi","mumbai","bengaluru","kolkata","chennai","hyderabad","ahmedabad","pune",
+"jaipur","lucknow","surat","kanpur","nagpur","indore","bhopal","patna","ludhiana",
+"agra","nashik","faridabad","varanasi","rajkot","meerut","jabalpur","jamshedpur",
+"asansol","vijayawada","dhanbad","amritsar","allahabad","gwalior","coimbatore",
+"hubli-dharwad","aurangabad","jodhpur","madurai","raipur","kota","guwahati",
+"chandigarh","thiruvananthapuram","solapur","ranchi","bareilly","moradabad",
+"mysuru","tiruchirappalli","jalandhar","bhubaneswar","salem","warangal","guntur",
+"bhiwandi","saharanpur","gorakhpur","bikaner","amravati","noida","firozabad",
+"muzaffarnagar","udaipur","aligarh","bilaspur","jhansi","siliguri","nanded",
+"belgaum","cuttack","akola","bhavnagar","kollam","kolhapur","gaya","rewa",
+"ujjain","davangere","tirunelveli","erode","nellore","rourkela","ajmer",
+"bellary","durgapur","tuticorin","ratlam","kakinada","panipat","anantapur",
+"karnal","hisar","rohtak","sonipat","alwar","sambalpur","shimoga","yamunanagar",
+"pondicherry","nizamabad","bardhaman","karimnagar","muzaffarpur",
+"bokaro_steel_city","rampur","haridwar","barasat","katihar","darbhanga",
+"gopalganj","bidar","satna","dewas","palakkad","kottayam","bhagalpur",
+"haldwani","bhatinda","ambala","imphal","agartala","dima_pur","itanagar",
+"aizawl","shillong","kohima","gangtok","port_blair","pali","gandhinagar",
+"bharuch","navsari","valsad","vellore","kanchipuram","tirupati","hosur","tumakuru"
+];
+
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(async (position) => {
+    const lat = position.coords.latitude;
+    const lon = position.coords.longitude;
+
+    map.flyTo({
+      center: [lon, lat],
+      zoom: 10,
+      essential: true
+    });
+
+    // 🔥 Reverse geocode with OpenCage
+    const apiKey = '6c62e89a297a4da6ab74740be026e9e7';
+    const url = `https://api.opencagedata.com/geocode/v1/json?q=${lat}+${lon}&key=${apiKey}`;
+
+    try {
+      const response = await fetch(url);
+      const data = await response.json();
+      const address = data.results[0]?.formatted || "Unknown location";
+
+      // 🔥 Add marker with popup
+      new mapboxgl.Marker({ color: "#2e7d32" })
+        .setLngLat([lon, lat])
+        .setPopup(new mapboxgl.Popup().setHTML(`<strong>Your Location</strong><br>${address}`))
+        .addTo(map)
+        .togglePopup();
+    } catch (err) {
+      console.error("Reverse geocode failed:", err);
+    }
+  }, () => {
+    console.error("Geolocation permission denied.");
+  });
+} else {
+  console.error("Geolocation not supported.");
+}
+
+
+map.on('load', () => {
+  // 🚗 Add all roads and industries layers
+  roadCities.forEach(city => {
+    map.addSource(`${city}_roads`, {
+      type: 'geojson',
+      data: `${city}_roads.geojson`
+    });
+    map.addLayer({
+      id: `${city}_roads`,
+      type: 'line',
+      source: `${city}_roads`,
+      paint: {
+        'line-color': '#1a73e8',
+        'line-width': 1.5
+      }
+    });
+
+    map.addSource(`${city}_industries`, {
+      type: 'geojson',
+      data: `${city}_industries.geojson`
+    });
+    map.addLayer({
+      id: `${city}_industries`,
+      type: 'fill',
+      source: `${city}_industries`,
+      paint: {
+        'fill-color': '#d32f2f',
+        'fill-opacity': 0.3
+      }
+    });
+  });
+
+  // 🔥 Fires layer
+  map.addSource('fires', {
+    type: 'geojson',
+    data: 'fires.geojson'
+  });
+  map.addLayer({
+    id: 'fires',
+    type: 'circle',
+    source: 'fires',
+    paint: {
+      'circle-radius': 4,
+      'circle-color': [
+        'interpolate',
+        ['linear'],
+        ['get', 'bright_ti4'],
+        300, '#ffb74d',
+        330, '#fb8c00',
+        360, '#e65100',
+        390, '#bf360c'
+      ],
+      'circle-opacity': 0.7
+    }
+  });
+
+  // 🔥 Fire popups
+  map.on('click', 'fires', (e) => {
+    const props = e.features[0].properties;
+    new mapboxgl.Popup()
+      .setLngLat(e.lngLat)
+      .setHTML(`<strong>Fire</strong><br>
+        Date: ${props.acq_date}<br>
+        Brightness: ${props.bright_ti4}<br>
+        Confidence: ${props.confidence}<br>
+        FRP: ${props.frp}<br>
+        ${props.daynight}`)
+      .addTo(map);
+  });
+
+  map.on('mouseenter', 'fires', () => map.getCanvas().style.cursor = 'pointer');
+  map.on('mouseleave', 'fires', () => map.getCanvas().style.cursor = '');
+
+  // ✅ Layer toggles
+  document.getElementById('roadsToggle').addEventListener('change', (e) => {
+    roadCities.forEach(city => map.setLayoutProperty(`${city}_roads`, 'visibility', e.target.checked ? 'visible' : 'none'));
+  });
+  document.getElementById('industriesToggle').addEventListener('change', (e) => {
+    roadCities.forEach(city => map.setLayoutProperty(`${city}_industries`, 'visibility', e.target.checked ? 'visible' : 'none'));
+  });
+  document.getElementById('firesToggle').addEventListener('change', (e) => {
+    map.setLayoutProperty('fires', 'visibility', e.target.checked ? 'visible' : 'none');
+  });
+});
+</script>
+
+</body>
+</html>
