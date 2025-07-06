@@ -744,6 +744,30 @@ body {
   background: rgba(255, 255, 255, 0.3);
 }
 
+.leaflet-popup-content-wrapper {
+  background-color: #1e1e1e !important;
+  color: #f1f1f1 !important;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.leaflet-popup-tip {
+  background-color: #1e1e1e !important;
+}
+
+.leaflet-popup-content {
+  margin: 6px 0;
+}
+
+.leaflet-popup-content strong {
+  color: #ffffff;
+}
+
+.leaflet-popup-content small {
+  color: #cccccc;
+}
+
     </style>
 </head>
 <body>
@@ -1076,17 +1100,6 @@ var colorPalettes = {
       this.updatePollutantLayer(e.target.value)
     })
 
-    // Layer toggles
-    document.getElementById("roads-toggle").addEventListener("change", (e) => {
-      this.toggleLayer("roads", e.target.checked)
-    })
-    document.getElementById("industries-toggle").addEventListener("change", (e) => {
-      this.toggleLayer("industries", e.target.checked)
-    })
-    document.getElementById("fires-toggle").addEventListener("change", (e) => {
-      this.toggleLayer("fires", e.target.checked)
-    })
-
     // Refresh button
     document.querySelector(".refresh-btn").addEventListener("click", () => {
       this.refreshData()
@@ -1417,34 +1430,30 @@ console.log("L.Control.Fullscreen:", typeof L.Control.Fullscreen); // should be 
 }
 
 
-  navigator.geolocation.getCurrentPosition(async position => {
-    const lat = position.coords.latitude;
-    const lon = position.coords.longitude;
-    map.setView([lat, lon], 8);
+ navigator.geolocation.getCurrentPosition(async position => {
+  const lat = position.coords.latitude;
+  const lon = position.coords.longitude;
 
-    L.marker([lat, lon], { icon: currentLocationIcon }).addTo(map)
-      .bindPopup(`Your Location: [${lat.toFixed(4)}, ${lon.toFixed(4)}]`).openPopup();
+  // 👇 Set to broader zoom level to show more of the country
+  map.setView([lat, lon], 3); // zoom 5 is ideal for whole India
 
-    const airData = await self.fetchAirData(lat, lon);
-    const heatValue = Math.min(Math.max(airData.pollution.aqicn / 300, 0.1), 1.0);
-    currentHeatLayer.addLatLng([lat, lon, heatValue]);
-    updateMapInfo(lat, lon, airData);
-  },
-  (error) => {
-    console.error("[ERROR] Geolocation failed:", error);
-  });
+  // 📍 Add marker at user's location
+  L.marker([lat, lon], { icon: currentLocationIcon }).addTo(map)
+    .bindPopup(`
+      <strong>Your Location</strong><br>
+      <small>[${lat.toFixed(4)}, ${lon.toFixed(4)}]</small>
+    `, { offset: L.point(0, -20) })
+    .openPopup();
 
-  map.on('click', async (e) => {
-    const { lat, lng } = e.latlng;
-    L.marker([lat, lng], { icon: clickedLocationIcon }).addTo(map)
-      .bindPopup(`Clicked: [${lat.toFixed(4)}, ${lng.toFixed(4)}]`).openPopup();
+  // 🌫️ AQI heat and info
+  const airData = await self.fetchAirData(lat, lon);
+  const heatValue = Math.min(Math.max(airData.pollution.aqicn / 300, 0.1), 1.0);
+  currentHeatLayer.addLatLng([lat, lon, heatValue]);
+  updateMapInfo(lat, lon, airData);
 
-    const airData = await self.fetchAirData(lat, lng);
-    const heatValue = Math.min(Math.max(airData.pollution.aqicn / 300, 0.1), 0.1);
-    currentHeatLayer.addLatLng([lat, lng, heatValue]);
-
-     updateMapInfo(lat, lng, airData);
-  });
+}, error => {
+  console.error("[ERROR] Geolocation failed:", error);
+});
 }
 
 
@@ -1507,14 +1516,14 @@ setupPollutionSourcesMap() {
   mapboxgl.accessToken = 'pk.eyJ1IjoibWFoYWQxNjA0IiwiYSI6ImNtY3A2OWlpaTAydXQybHIyYjJvejhqemQifQ.2y3ZmPe5lRXfqns5zlG7hA';
 
   const map = new mapboxgl.Map({
-    container: 'map',
-    style: 'mapbox://styles/mapbox/light-v11',
+    container: 'pollution-map',
+    style: 'mapbox://styles/mapbox/dark-v11',
     center: [78.9629, 22.5937],
     zoom: 4
   });
   map.addControl(new mapboxgl.FullscreenControl(), 'top-right');
 
-  // 🚀 List of short city names matching your saved files
+   // 🚀 List of short city names matching your saved files
 const roadCities = [
 "delhi","mumbai","bengaluru","kolkata","chennai","hyderabad","ahmedabad","pune",
 "jaipur","lucknow","surat","kanpur","nagpur","indore","bhopal","patna","ludhiana",
@@ -1555,19 +1564,16 @@ const roadCities = [
         new mapboxgl.Marker({ color: "#2e7d32" })
           .setLngLat([lon, lat])
           .setPopup(new mapboxgl.Popup().setHTML(`<strong>Your Location</strong><br>${address}`))
-          .addTo(map)
+          .addTo(map);
       } catch (err) {
         console.error("Reverse geocode failed:", err);
       }
     }, () => {
       console.error("Geolocation permission denied.");
     });
-  } else {
-    console.error("Geolocation not supported.");
   }
 
   map.on('load', () => {
-    // Add city-wise road and industry layers
     roadCities.forEach(city => {
       map.addSource(`${city}_roads`, {
         type: 'geojson',
@@ -1577,6 +1583,7 @@ const roadCities = [
         id: `${city}_roads`,
         type: 'line',
         source: `${city}_roads`,
+        layout: { visibility: 'visible' },
         paint: {
           'line-color': '#1a73e8',
           'line-width': 1.5
@@ -1591,6 +1598,7 @@ const roadCities = [
         id: `${city}_industries`,
         type: 'fill',
         source: `${city}_industries`,
+        layout: { visibility: 'visible' },
         paint: {
           'fill-color': '#d32f2f',
           'fill-opacity': 0.3
@@ -1598,7 +1606,6 @@ const roadCities = [
       });
     });
 
-    // Add fires layer
     map.addSource('fires', {
       type: 'geojson',
       data: './Geojson/fires.geojson'
@@ -1607,6 +1614,7 @@ const roadCities = [
       id: 'fires',
       type: 'circle',
       source: 'fires',
+      layout: { visibility: 'visible' },
       paint: {
         'circle-radius': 4,
         'circle-color': [
@@ -1622,6 +1630,7 @@ const roadCities = [
       }
     });
 
+    // Fire event popup
     map.on('click', 'fires', (e) => {
       const props = e.features[0].properties;
       new mapboxgl.Popup()
@@ -1638,20 +1647,49 @@ const roadCities = [
     map.on('mouseenter', 'fires', () => map.getCanvas().style.cursor = 'pointer');
     map.on('mouseleave', 'fires', () => map.getCanvas().style.cursor = '');
 
-    // UI toggle bindings (assuming checkboxes with these IDs exist)
-    document.getElementById('roadsToggle')?.addEventListener('change', (e) => {
-      roadCities.forEach(city => map.setLayoutProperty(`${city}_roads`, 'visibility', e.target.checked ? 'visible' : 'none'));
+    // Toggle controls (updated IDs to match your HTML)
+    document.getElementById('roads-toggle')?.addEventListener('change', (e) => {
+      roadCities.forEach(city => {
+        map.setLayoutProperty(`${city}_roads`, 'visibility', e.target.checked ? 'visible' : 'none');
+      });
     });
 
-    document.getElementById('industriesToggle')?.addEventListener('change', (e) => {
-      roadCities.forEach(city => map.setLayoutProperty(`${city}_industries`, 'visibility', e.target.checked ? 'visible' : 'none'));
+    document.getElementById('industries-toggle')?.addEventListener('change', (e) => {
+      roadCities.forEach(city => {
+        map.setLayoutProperty(`${city}_industries`, 'visibility', e.target.checked ? 'visible' : 'none');
+      });
     });
 
-    document.getElementById('firesToggle')?.addEventListener('change', (e) => {
+    document.getElementById('fires-toggle')?.addEventListener('change', (e) => {
       map.setLayoutProperty('fires', 'visibility', e.target.checked ? 'visible' : 'none');
     });
+
+    // Legend inside the map
+    const legend = document.createElement('div');
+legend.innerHTML = `
+  <div style="
+    background:#1e1e1e;
+    color:#eee;
+    padding:10px 14px;
+    border-radius:8px;
+    box-shadow:0 1px 3px rgba(0,0,0,0.4);
+    font-size:14px;
+    line-height:1.6;
+  ">
+    <strong>Legend</strong><br>
+    <div><span style="display:inline-block;width:12px;height:12px;background:#1a73e8;margin-right:6px;border-radius:2px"></span> Roads</div>
+    <div><span style="display:inline-block;width:12px;height:12px;background:#d32f2f;margin-right:6px;border-radius:2px"></span> Industries</div>
+    <div><span style="display:inline-block;width:12px;height:12px;background:#fb8c00;margin-right:6px;border-radius:2px"></span> Fire Events</div>
+  </div>
+`;
+legend.style.position = 'absolute';
+legend.style.bottom = '20px';
+legend.style.left = '20px';
+legend.style.zIndex = '1';
+document.getElementById('pollution-map').appendChild(legend);
   });
 }
+
 
   updateHealthTips() {
     if (!this.currentWeatherData) return
