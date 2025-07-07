@@ -8,6 +8,120 @@ from AQIPredict import load_city_data, load_weather_data, create_features, forec
 
 # ----------------------------- CONFIG ----------------------------- #
 st.set_page_config(page_title="AQI Forecaster App", layout="wide")
+
+# ----------------------------- CUSTOM STYLING ----------------------------- #
+st.markdown("""
+<style>
+html, body, [class*="css"] {
+    background: linear-gradient(135deg, #1a1a1a 0%, #000000 50%, #1a1a1a 100%) !important;
+    color: #d1d5db !important;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+/* Navbar */
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 1rem 2rem;
+    border-radius: 0 0 12px 12px;
+    margin-bottom: 20px;
+}
+.navbar img {
+    height: 40px;
+    margin-right: 1rem;
+}
+.navbar .brand {
+    font-size: 1.6rem;
+    color: #00ffff;
+    font-weight: bold;
+    text-shadow: 0 0 10px #06b6d4;
+    display: flex;
+    align-items: center;
+}
+
+h1, h2, h3 {
+    color: #ffffff !important;
+    text-shadow: 0 0 10px #06b6d4;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #111827 !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.stButton>button {
+    background-color: #06b6d4;
+    color: #000000;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-weight: bold;
+    box-shadow: 0 0 10px #06b6d4;
+    transition: all 0.3s ease;
+}
+.stButton>button:hover {
+    background-color: #00ffff;
+    box-shadow: 0 0 15px #00ffff;
+}
+
+[data-testid="stMetricValue"] {
+    font-size: 1.8rem;
+    color: #00ff88 !important;
+    text-shadow: 0 0 5px #00ff88;
+}
+
+thead tr th {
+    background-color: #374151 !important;
+    color: #ffffff !important;
+}
+tbody tr td {
+    background-color: #1a1a1a !important;
+    color: #d1d5db !important;
+}
+
+.css-1lcbmhc, .css-1y4p8pa, .stDataFrame {
+    background: rgba(0, 0, 0, 0.2) !important;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(20px);
+    padding: 1rem;
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+.glow-cyan {
+    text-shadow: 0 0 5px #06b6d4, 0 0 10px #06b6d4;
+}
+
+/* Weather animation (sun icon example) */
+.weather-icon {
+    font-size: 2rem;
+    color: #fbbf24;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0% { text-shadow: 0 0 5px #fbbf24; }
+    50% { text-shadow: 0 0 20px #fbbf24; }
+    100% { text-shadow: 0 0 5px #fbbf24; }
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ----------------------------- NAVBAR ----------------------------- #
+st.markdown("""
+<div class="navbar">
+  <div class="brand">
+    <img src="MaveriqAir-Logo.png" alt="logo">
+    MaveriqAir
+  </div>
+  <div class="weather-icon">☀️</div>
+</div>
+""", unsafe_allow_html=True)
+
 st.title("🌍 Air Quality Forecaster")
 
 # ----------------------------- CITIES ----------------------------- #
@@ -55,16 +169,14 @@ for i, row in df_merged.iterrows():
 keep_cols = ["Date", "AQI", "TempAvg", "TempMin", "TempMax", "WindSpeed", "PM10", "PM2.5", "OZONE", "NO2", "CO"]
 df_merged = df_merged[keep_cols].dropna()
 
-
 # ----------------------------- SHARED YEAR SLIDER ----------------------------- #
 df_merged["Year"] = df_merged["Date"].dt.year
 available_years = sorted(df_merged["Year"].unique())
 
 selected_year = st.select_slider("📅 Select Year", options=available_years, value=available_years[-1])
 
-
 # ----------------------------- YEARLY SUMMARY SECTION ----------------------------- #
-st.subheader(f"📌 Summary for {city_name} - {selected_year}")
+st.markdown(f'<h2 class="glow-cyan">📌 Summary for {city_name} - {selected_year}</h2>', unsafe_allow_html=True)
 df_year_summary = df_merged[df_merged["Year"] == selected_year]
 
 summary_container = st.container()
@@ -98,13 +210,12 @@ pollutant_df = pd.DataFrame({
 st.dataframe(pollutant_df.style.background_gradient(cmap="YlGnBu"))
 
 # ----------------------------- HISTORICAL DATA CHARTS ----------------------------- #
-st.subheader(f"📊 Historical AQI + Weather Trends for {city_name} (2021–2025)")
+st.markdown(f'<h2 class="glow-cyan">📊 Historical AQI + Weather Trends for {city_name} (2021–2025)</h2>', unsafe_allow_html=True)
 
 df_merged["Year"] = df_merged["Date"].dt.year
 year_groups = dict(tuple(df_merged.groupby("Year")))
 available_years = sorted(year_groups.keys())
 
-# Carousel-like Year Selector
 df_year = df_merged[df_merged["Year"] == selected_year]
 
 with st.container():
@@ -128,7 +239,7 @@ with st.container():
     st.pyplot(fig)
 
 # ----------------------------- FORECAST ----------------------------- #
-st.subheader("📈 7-Day Forecast")
+st.markdown("""<h2 class='glow-cyan'>📈 7-Day Forecast</h2>""", unsafe_allow_html=True)
 st.markdown("Click the button below to run the forecast model for the selected city.")
 
 if st.button("🔮 Run Forecast"):
