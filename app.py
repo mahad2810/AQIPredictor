@@ -259,3 +259,74 @@ if st.button("🔮 Run Forecast"):
 
         st.line_chart(df_forecast.set_index("Date"))
         st.dataframe(df_forecast.style.background_gradient(cmap="OrRd"))
+
+# ----------------------------- HEALTH RECOMMENDATIONS ----------------------------- #
+import google.generativeai as genai
+import requests
+
+# Setup Gemini Flash
+genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+
+# 🌐 Fetch real-time AQI from AirVisual API
+def get_current_aqi_cn(lat, lon, api_key):
+    url = f"https://api.airvisual.com/v2/nearest_city?lat={lat}&lon={lon}&key={api_key}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        if data.get("status") == "success":
+            aqi_cn = data["data"]["current"]["pollution"]["aqicn"]
+            return aqi_cn
+        else:
+            raise ValueError("API response error:", data.get("status"))
+    else:
+        raise ConnectionError(f"Failed to fetch data: {response.status_code}")
+
+# 🧠 Gemini Prompt Generator
+def generate_health_prompt(city, aqi, context="living"):
+    return f"""
+You are a certified air quality and health advisor. Provide clear, non-technical health recommendations for a person {context} in {city}, India, where the current AQI is {aqi}.
+
+Guidelines:
+- Mention which health groups are at risk
+- Suggest outdoor activity limits
+- Recommend masks, filters, or air purifiers if needed
+- Suggest general wellness tips (hydration, food, exercise)
+- Be brief, friendly, and practical
+- Use bullet points
+"""
+
+# 🔮 Gemini Call
+def get_recommendation(city, aqi, context):
+    prompt = generate_health_prompt(city, aqi, context)
+    response = gemini_model.generate_content(prompt)
+    return response.text.strip()
+
+# ----------------------------- UI: Health Recommendation Section ----------------------------- #
+st.markdown("""<h2 class='glow-cyan'>🩺 Personalized Health Recommendations</h2>""", unsafe_allow_html=True)
+
+context_choice = st.radio("Are you currently living in or planning to travel to this city?", ["Living", "Travelling"], horizontal=True)
+
+# Fetch live AQI
+try:
+    live_aqi = get_current_aqi_cn(lat, lon, api_key="e5e635df-37a8-4ac7-b712-2a0207578385")
+except Exception as e:
+    st.error(f"⚠️ Failed to fetch live AQI: {e}")
+    live_aqi = int(df_year_summary["AQI"].mean())  # fallback
+
+# Color logic for AQI severity
+aqi_color = "#22c55e" if live_aqi <= 100 else "#facc15" if live_aqi <= 200 else "#f97316" if live_aqi <= 300 else "#ef4444"
+
+# Display live AQI card
+st.markdown(f"""
+<div style="background-color: {aqi_color}; padding: 1rem; border-radius: 10px; color: black; text-align: center; font-weight: bold; font-size: 1.1rem;">
+Real-time AQI (CN) in {city_name}: {live_aqi} ({context_choice.lower()})
+</div>
+""", unsafe_allow_html=True)
+
+# Generate Gemini Recommendations
+if st.button("🧠 Generate Health Advice"):
+    with st.spinner("Analyzing real-time AQI and generating personalized advice..."):
+        advice = get_recommendation(city_name, live_aqi, context_choice.lower())
+        st.success("Health Tips Based on Current Air Quality:")
+        st.markdown(advice.replace('\n', '\n\n'))  # markdown friendly format
