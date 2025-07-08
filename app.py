@@ -112,11 +112,12 @@ tbody tr td {
 """, unsafe_allow_html=True)
 
 # ----------------------------- NAVBAR ----------------------------- #
+# ----------------------------- NAVBAR ----------------------------- #
 st.markdown("""
 <div class="navbar">
   <div class="brand">
-    <img src="MaveriqAir-Logo.png" alt="logo">
-    MaveriqAir
+    <img src="https://raw.githubusercontent.com/mahad2810/AQIPredictor/main/MaveriqAir-Logo.png" alt="logo" style="height: 40px; margin-right: 10px;">
+    <span>MaveriqAir</span>
   </div>
   <div class="weather-icon">☀️</div>
 </div>
