@@ -12,101 +12,519 @@ st.set_page_config(page_title="AQI Forecaster App", layout="wide")
 # ----------------------------- CUSTOM STYLING ----------------------------- #
 st.markdown("""
 <style>
-html, body, [class*="css"] {
-    background: linear-gradient(135deg, #1a1a1a 0%, #000000 50%, #1a1a1a 100%) !important;
-    color: #d1d5db !important;
-    font-family: 'Segoe UI', sans-serif;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Root Variables */
+:root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --glass-bg: rgba(255, 255, 255, 0.08);
+    --glass-border: rgba(255, 255, 255, 0.18);
+    --text-primary: #ffffff;
+    --text-secondary: #e2e8f0;
+    --text-muted: #94a3b8;
+    --accent-blue: #3b82f6;
+    --accent-purple: #8b5cf6;
+    --success-green: #10b981;
+    --warning-orange: #f59e0b;
+    --danger-red: #ef4444;
 }
 
-/* Navbar */
+/* Global Styles */
+html, body, [class*="css"] {
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #533483 100%) !important;
+    color: var(--text-primary) !important;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+    font-weight: 400;
+    line-height: 1.6;
+}
+
+/* Enhanced Glassmorphism Container */
+.glass-container {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 16px !important;
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    padding: 1.5rem !important;
+    margin: 1rem 0 !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.glass-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+}
+
+/* Premium Navbar */
 .navbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: rgba(0, 0, 0, 0.2);
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 1rem 2rem;
-    border-radius: 0 0 12px 12px;
-    margin-bottom: 20px;
+    background: rgba(15, 15, 35, 0.95) !important;
+    backdrop-filter: blur(40px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 20px !important;
+    padding: 1.25rem 2rem !important;
+    margin: 1rem 0 2rem 0 !important;
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    position: relative;
+    overflow: hidden;
 }
-.navbar img {
-    height: 40px;
-    margin-right: 1rem;
+
+.navbar::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(103, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    z-index: -1;
 }
+
 .navbar .brand {
-    font-size: 1.6rem;
-    color: #00ffff;
-    font-weight: bold;
-    text-shadow: 0 0 10px #06b6d4;
-    display: flex;
-    align-items: center;
+    font-size: 1.75rem !important;
+    font-weight: 700 !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    display: flex !important;
+    align-items: center !important;
+    letter-spacing: -0.025em !important;
 }
 
-h1, h2, h3 {
-    color: #ffffff !important;
-    text-shadow: 0 0 10px #06b6d4;
+.navbar img {
+    height: 45px !important;
+    margin-right: 12px !important;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3)) !important;
 }
 
-section[data-testid="stSidebar"] {
-    background-color: #111827 !important;
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+/* Enhanced Weather Icon */
+.weather-icon {
+    font-size: 2.5rem !important;
+    background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    animation: premium-pulse 3s ease-in-out infinite !important;
+    filter: drop-shadow(0 0 20px rgba(251, 191, 36, 0.4)) !important;
 }
 
-.stButton>button {
-    background-color: #06b6d4;
-    color: #000000;
-    border: none;
-    border-radius: 10px;
-    padding: 10px 20px;
-    font-weight: bold;
-    box-shadow: 0 0 10px #06b6d4;
-    transition: all 0.3s ease;
-}
-.stButton>button:hover {
-    background-color: #00ffff;
-    box-shadow: 0 0 15px #00ffff;
+@keyframes premium-pulse {
+    0%, 100% { 
+        transform: scale(1);
+        filter: drop-shadow(0 0 20px rgba(251, 191, 36, 0.4));
+    }
+    50% { 
+        transform: scale(1.05);
+        filter: drop-shadow(0 0 30px rgba(251, 191, 36, 0.6));
+    }
 }
 
-[data-testid="stMetricValue"] {
-    font-size: 1.8rem;
-    color: #00ff88 !important;
-    text-shadow: 0 0 5px #00ff88;
+/* Typography Enhancements */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.025em !important;
+    margin-bottom: 1rem !important;
 }
 
-thead tr th {
-    background-color: #374151 !important;
-    color: #ffffff !important;
-}
-tbody tr td {
-    background-color: #1a1a1a !important;
-    color: #d1d5db !important;
+h1 {
+    font-size: 2.5rem !important;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
 }
 
-.css-1lcbmhc, .css-1y4p8pa, .stDataFrame {
-    background: rgba(0, 0, 0, 0.2) !important;
-    border-radius: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(20px);
-    padding: 1rem;
-    margin-top: 10px;
-    margin-bottom: 20px;
+h2 {
+    font-size: 1.875rem !important;
+    color: var(--text-primary) !important;
 }
 
 .glow-cyan {
-    text-shadow: 0 0 5px #06b6d4, 0 0 10px #06b6d4;
+    background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.3)) !important;
 }
 
-/* Weather animation (sun icon example) */
-.weather-icon {
-    font-size: 2rem;
-    color: #fbbf24;
-    animation: pulse 2s infinite;
+/* Premium Sidebar */
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, rgba(15, 15, 35, 0.95) 0%, rgba(26, 26, 46, 0.95) 100%) !important;
+    backdrop-filter: blur(20px) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
-@keyframes pulse {
-    0% { text-shadow: 0 0 5px #fbbf24; }
-    50% { text-shadow: 0 0 20px #fbbf24; }
-    100% { text-shadow: 0 0 5px #fbbf24; }
+
+section[data-testid="stSidebar"] > div {
+    background: transparent !important;
+}
+
+/* Enhanced Buttons */
+.stButton > button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 12px !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    letter-spacing: 0.025em !important;
+    box-shadow: 
+        0 4px 15px rgba(103, 126, 234, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 
+        0 8px 25px rgba(103, 126, 234, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.stButton > button:active {
+    transform: translateY(0) !important;
+}
+
+/* Premium Metrics */
+[data-testid="stMetricValue"] {
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    filter: drop-shadow(0 0 10px rgba(16, 185, 129, 0.3)) !important;
+}
+
+[data-testid="stMetricLabel"] {
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+    font-size: 0.875rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+/* Enhanced Tables */
+.stDataFrame, [data-testid="stDataFrame"] {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--glass-border) !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+    overflow: hidden !important;
+}
+
+thead tr th {
+    background: linear-gradient(135deg, rgba(103, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%) !important;
+    color: var(--text-primary) !important;
+    font-weight: 600 !important;
+    font-size: 0.875rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    padding: 1rem !important;
+    border: none !important;
+}
+
+tbody tr td {
+    background: rgba(255, 255, 255, 0.02) !important;
+    color: var(--text-secondary) !important;
+    padding: 0.875rem 1rem !important;
+    border: none !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+tbody tr:hover td {
+    background: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Info/Alert Boxes */
+.stAlert, [data-testid="stAlert"] {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Select Slider Enhancement */
+.stSelectSlider {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) !important;
+    border-radius: 12px !important;
+    padding: 0.5rem !important;
+}
+
+/* Chart Containers */
+.stPlotlyChart, [data-testid="stPlotlyChart"] {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--glass-border) !important;
+    padding: 1rem !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Spinner Enhancement */
+.stSpinner {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) !important;
+    border-radius: 12px !important;
+    border: 1px solid var(--glass-border) !important;
+}
+
+/* Container Enhancements */
+.main .block-container {
+    padding-top: 2rem !important;
+    padding-bottom: 2rem !important;
+}
+
+/* Custom AQI Status Card */
+.aqi-status-card {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 16px !important;
+    padding: 1.5rem !important;
+    text-align: center !important;
+    font-weight: 600 !important;
+    font-size: 1.1rem !important;
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+.aqi-status-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%);
+}
+
+/* Enhanced Recommendation Section Styles */
+.recommendation-section {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 16px !important;
+    padding: 1.5rem !important;
+    margin: 1.5rem 0 !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+}
+
+.context-selector {
+    margin-bottom: 1rem !important;
+}
+
+/* Premium AQI Card */
+.premium-aqi-card {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 20px !important;
+    padding: 2rem !important;
+    margin: 2rem 0 !important;
+    box-shadow: 
+        0 12px 40px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    position: relative !important;
+    overflow: hidden !important;
+    text-align: center !important;
+}
+
+.premium-aqi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 20px 20px 0 0;
+}
+
+.aqi-header {
+    margin-bottom: 1.5rem !important;
+}
+
+.aqi-label {
+    font-size: 0.875rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    color: var(--text-muted) !important;
+    margin-bottom: 0.5rem !important;
+    font-weight: 500 !important;
+}
+
+.aqi-location {
+    font-size: 1rem !important;
+    color: var(--text-secondary) !important;
+    font-weight: 500 !important;
+}
+
+.aqi-main {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    margin-bottom: 1rem !important;
+}
+
+.aqi-value {
+    font-size: 3.5rem !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+    text-shadow: 0 0 20px currentColor !important;
+}
+
+.aqi-status {
+    padding: 0.5rem 1.5rem !important;
+    border-radius: 25px !important;
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+}
+
+.aqi-indicator {
+    position: absolute !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 4px !important;
+    border-radius: 0 0 20px 20px !important;
+}
+
+/* Enhanced Radio Button Styling */
+.stRadio > div {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 12px !important;
+    padding: 1rem !important;
+    margin: 1rem 0 !important;
+}
+
+.stRadio > div > label {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+    padding: 0.75rem 1.5rem !important;
+    margin: 0 0.5rem !important;
+    transition: all 0.3s ease !important;
+    cursor: pointer !important;
+    font-weight: 500 !important;
+}
+
+.stRadio > div > label:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(103, 126, 234, 0.5) !important;
+}
+
+.stRadio > div > label[data-checked="true"] {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border-color: #667eea !important;
+    color: white !important;
+    box-shadow: 0 4px 15px rgba(103, 126, 234, 0.4) !important;
+}
+
+/* Enhanced Button Spacing */
+.stButton {
+    margin: 1.5rem 0 !important;
+}
+
+.stButton > button {
+    width: 100% !important;
+    min-height: 3rem !important;
+    font-size: 1rem !important;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    box-shadow: 
+        0 6px 20px rgba(16, 185, 129, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+.stButton > button:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    box-shadow: 
+        0 8px 25px rgba(16, 185, 129, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Advice Container */
+.advice-container {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) saturate(180%) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 16px !important;
+    padding: 1.5rem !important;
+    margin: 1.5rem 0 !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+    border-left: 4px solid var(--success-green) !important;
+}
+
+.advice-content {
+    background: rgba(255, 255, 255, 0.02) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-radius: 12px !important;
+    padding: 1.5rem !important;
+    margin-top: 1rem !important;
+    line-height: 1.7 !important;
+    color: var(--text-secondary) !important;
+}
+
+.advice-content p {
+    margin-bottom: 1rem !important;
+}
+
+/* Spinner Enhancement */
+.stSpinner > div {
+    background: var(--glass-bg) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px solid var(--glass-border) !important;
+    border-radius: 12px !important;
+    padding: 2rem !important;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -305,7 +723,25 @@ def get_recommendation(city, aqi, context):
 # ----------------------------- UI: Health Recommendation Section ----------------------------- #
 st.markdown("""<h2 class='glow-cyan'>🩺 Personalized Health Recommendations</h2>""", unsafe_allow_html=True)
 
-context_choice = st.radio("Are you currently living in or planning to travel to this city?", ["Living", "Travelling"], horizontal=True)
+# Enhanced context selection with better spacing
+st.markdown("""
+<div class="recommendation-section">
+    <div class="context-selector">
+        <h4 style="color: var(--text-secondary); font-size: 1rem; margin-bottom: 1rem; font-weight: 500;">
+            Are you currently living in or planning to travel to this city?
+        </h4>
+    </div>
+</div>
+""", unsafe_allow_html=True)
+
+context_choice = st.radio(
+    "", 
+    ["Living", "Travelling"], 
+    horizontal=True,
+    key="context_radio"
+)
+
+st.markdown("<div style='margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
 
 # Fetch live AQI
 try:
@@ -316,17 +752,58 @@ except Exception as e:
 
 # Color logic for AQI severity
 aqi_color = "#22c55e" if live_aqi <= 100 else "#facc15" if live_aqi <= 200 else "#f97316" if live_aqi <= 300 else "#ef4444"
+aqi_status = "Good" if live_aqi <= 50 else "Moderate" if live_aqi <= 100 else "Unhealthy for Sensitive" if live_aqi <= 150 else "Unhealthy" if live_aqi <= 200 else "Very Unhealthy" if live_aqi <= 300 else "Hazardous"
 
-# Display live AQI card
+# Enhanced AQI status card
 st.markdown(f"""
-<div style="background-color: {aqi_color}; padding: 1rem; border-radius: 10px; color: black; text-align: center; font-weight: bold; font-size: 1.1rem;">
-Real-time AQI (CN) in {city_name}: {live_aqi} ({context_choice.lower()})
+<div class="premium-aqi-card">
+    <div class="aqi-header">
+        <div class="aqi-label">Real-time Air Quality Index</div>
+        <div class="aqi-location">{city_name} • {context_choice}</div>
+    </div>
+    <div class="aqi-main">
+        <div class="aqi-value" style="color: {aqi_color};">{live_aqi}</div>
+        <div class="aqi-status" style="background: {aqi_color}20; color: {aqi_color}; border: 1px solid {aqi_color}40;">
+            {aqi_status}
+        </div>
+    </div>
+    <div class="aqi-indicator" style="background: {aqi_color};"></div>
 </div>
 """, unsafe_allow_html=True)
 
+st.markdown("<div style='margin: 2rem 0;'></div>", unsafe_allow_html=True)
+
+# Enhanced Generate button with proper spacing
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    generate_advice = st.button(
+        "🧠 Generate Health Advice", 
+        key="generate_health_advice",
+        use_container_width=True
+    )
+
+st.markdown("<div style='margin: 1.5rem 0;'></div>", unsafe_allow_html=True)
+
 # Generate Gemini Recommendations
-if st.button("🧠 Generate Health Advice"):
+if generate_advice:
     with st.spinner("Analyzing real-time AQI and generating personalized advice..."):
         advice = get_recommendation(city_name, live_aqi, context_choice.lower())
-        st.success("Health Tips Based on Current Air Quality:")
-        st.markdown(advice.replace('\n', '\n\n'))  # markdown friendly format
+        
+        # Enhanced advice display
+        st.markdown("""
+        <div class="advice-container">
+            <div class="advice-header">
+                <h3 style="color: var(--success-green); margin-bottom: 0.5rem;">
+                    ✅ Health Tips Based on Current Air Quality
+                </h3>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Format advice with better styling
+        formatted_advice = advice.replace('\n', '\n\n').replace('•', '🔸')
+        st.markdown(f"""
+        <div class="advice-content">
+            {formatted_advice}
+        </div>
+        """, unsafe_allow_html=True)
